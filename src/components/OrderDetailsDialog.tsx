@@ -48,16 +48,6 @@ export const OrderDetailsDialog = ({ order, open, onOpenChange, onUpdateOrder }:
   const handleFileUpload = (files: FileList | null) => {
     if (!files) return;
 
-    const currentPhotos = order.fotosLista || [];
-    if (currentPhotos.length + files.length > 4) {
-      toast({
-        title: 'Error',
-        description: 'Solo puedes subir hasta 4 fotos en total',
-        variant: 'destructive'
-      });
-      return;
-    }
-
     Array.from(files).forEach(file => {
       if (!file.type.startsWith('image/')) {
         toast({
@@ -144,7 +134,7 @@ export const OrderDetailsDialog = ({ order, open, onOpenChange, onUpdateOrder }:
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog key={order.id} open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
@@ -327,16 +317,19 @@ export const OrderDetailsDialog = ({ order, open, onOpenChange, onUpdateOrder }:
 
             {/* Fotos de Lista */}
             <div className="space-y-2">
-              <Label>Fotos de Lista del Pedido (hasta 4 fotos)</Label>
+              <Label>Fotos de Lista del Pedido</Label>
               {order.fotosLista && order.fotosLista.length > 0 && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   {order.fotosLista.map((foto, index) => (
                     <div key={index} className="relative group">
                       <img 
                         src={foto} 
                         alt={`Lista del pedido ${index + 1}`}
-                        className="w-full h-32 object-cover rounded-lg border cursor-pointer"
-                        onClick={() => setSelectedImageIndex(index)}
+                        className="w-full h-32 object-cover rounded-lg border cursor-pointer hover:scale-105 transition-transform"
+                        onClick={() => {
+                          setSelectedImageIndex(index);
+                          setImageViewOpen(true);
+                        }}
                       />
                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
                         <Button
@@ -345,6 +338,7 @@ export const OrderDetailsDialog = ({ order, open, onOpenChange, onUpdateOrder }:
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedImageIndex(index);
+                            setImageViewOpen(true);
                           }}
                         >
                           <Eye className="w-4 h-4" />
@@ -365,29 +359,25 @@ export const OrderDetailsDialog = ({ order, open, onOpenChange, onUpdateOrder }:
                 </div>
               )}
               
-              {(!order.fotosLista || order.fotosLista.length < 4) && (
-                <>
-                  <Label htmlFor="foto-lista" className="cursor-pointer">
-                    <div className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-muted/50 transition-colors">
-                      <Upload className="w-4 h-4" />
-                      <span className="text-sm">
-                        Subir fotos ({order.fotosLista?.length || 0}/4)
-                      </span>
-                    </div>
-                  </Label>
-                  <Input
-                    id="foto-lista"
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                      handleFileUpload(e.target.files);
-                      e.target.value = '';
-                    }}
-                  />
-                </>
-              )}
+              <Label htmlFor="foto-lista" className="cursor-pointer">
+                <div className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg hover:bg-muted/50 transition-colors">
+                  <Upload className="w-4 h-4" />
+                  <span className="text-sm">
+                    Subir fotos ({order.fotosLista?.length || 0})
+                  </span>
+                </div>
+              </Label>
+              <Input
+                id="foto-lista"
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  handleFileUpload(e.target.files);
+                  e.target.value = '';
+                }}
+              />
             </div>
 
             {/* Archivos de Impresión - Links */}
@@ -465,22 +455,52 @@ export const OrderDetailsDialog = ({ order, open, onOpenChange, onUpdateOrder }:
 
           {/* Image View Dialog */}
           <Dialog open={imageViewOpen} onOpenChange={setImageViewOpen}>
-            <DialogContent className="max-w-6xl">
-              <DialogHeader>
-                <DialogTitle>Fotos de Lista del Pedido</DialogTitle>
+            <DialogContent className="max-w-7xl h-[90vh] p-2">
+              <DialogHeader className="px-4 pt-4">
+                <DialogTitle>
+                  {selectedImageIndex !== null 
+                    ? `Foto ${selectedImageIndex + 1} de ${order.fotosLista?.length || 0}`
+                    : 'Fotos de Lista del Pedido'
+                  }
+                </DialogTitle>
               </DialogHeader>
-              {order.fotosLista && order.fotosLista.length > 0 && (
-                <div className="grid grid-cols-2 gap-4">
-                  {order.fotosLista.map((foto, index) => (
-                    <img 
-                      key={index}
-                      src={foto} 
-                      alt={`Lista del pedido ${index + 1}`}
-                      className="w-full h-auto max-h-[70vh] object-contain rounded-lg border"
-                    />
-                  ))}
-                </div>
-              )}
+              <div className="relative h-full flex items-center justify-center p-4">
+                {order.fotosLista && selectedImageIndex !== null && order.fotosLista[selectedImageIndex] && (
+                  <img 
+                    src={order.fotosLista[selectedImageIndex]} 
+                    alt={`Lista del pedido ${selectedImageIndex + 1}`}
+                    className="max-w-full max-h-full object-contain rounded-lg"
+                  />
+                )}
+                {order.fotosLista && order.fotosLista.length > 1 && selectedImageIndex !== null && (
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        const newIndex = selectedImageIndex > 0 
+                          ? selectedImageIndex - 1 
+                          : (order.fotosLista?.length || 1) - 1;
+                        setSelectedImageIndex(newIndex);
+                      }}
+                    >
+                      Anterior
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        const newIndex = selectedImageIndex < (order.fotosLista?.length || 1) - 1
+                          ? selectedImageIndex + 1
+                          : 0;
+                        setSelectedImageIndex(newIndex);
+                      }}
+                    >
+                      Siguiente
+                    </Button>
+                  </div>
+                )}
+              </div>
             </DialogContent>
           </Dialog>
 
