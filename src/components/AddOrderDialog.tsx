@@ -39,8 +39,13 @@ export const AddOrderDialog = ({ onAddOrder }: AddOrderDialogProps) => {
     descripcion: ''
   });
   const [excelFile, setExcelFile] = useState<File | null>(null);
-  const [excelData, setExcelData] = useState<{ [talla: string]: number } | null>(null);
-  const [excelPrenda, setExcelPrenda] = useState<'polo' | 'poloMangaLarga' | 'short' | 'faldaShort' | 'pantaloneta'>('polo');
+  const [excelData, setExcelData] = useState<{
+    polo?: { [talla: string]: number };
+    poloMangaLarga?: { [talla: string]: number };
+    short?: { [talla: string]: number };
+    faldaShort?: { [talla: string]: number };
+    pantaloneta?: { [talla: string]: number };
+  } | null>(null);
   
   const { calculateOrderTime, calculateOrderTimeFromExcel, formatTime } = useTimeCalculator();
   const { toast } = useToast();
@@ -88,37 +93,69 @@ export const AddOrderDialog = ({ onAddOrder }: AddOrderDialogProps) => {
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
 
-      // Buscar la columna TALLA (empezar desde fila 1, índice 0)
+      // Buscar las columnas de prendas (empezar desde fila 1, índice 0)
       const headers = jsonData[0] as string[];
-      const tallaIndex = headers.findIndex(h => 
-        h && h.toString().toLowerCase().includes('talla')
-      );
+      
+      // Mapeo de columnas a buscar
+      const columnMap = {
+        polo: ['POLO'],
+        poloMangaLarga: ['POLO MANGA LARGA', 'POLO ML'],
+        short: ['SHORT'],
+        faldaShort: ['FALDASHORT', 'FALDA SHORT'],
+        pantaloneta: ['PANTALONETA']
+      };
 
-      if (tallaIndex === -1) {
+      const resultado: {
+        polo?: { [talla: string]: number };
+        poloMangaLarga?: { [talla: string]: number };
+        short?: { [talla: string]: number };
+        faldaShort?: { [talla: string]: number };
+        pantaloneta?: { [talla: string]: number };
+      } = {};
+
+      let columnsFound = 0;
+
+      // Buscar cada tipo de prenda
+      for (const [key, possibleNames] of Object.entries(columnMap)) {
+        const columnIndex = headers.findIndex(h => {
+          if (!h) return false;
+          const headerUpper = h.toString().toUpperCase().trim();
+          return possibleNames.some(name => headerUpper === name);
+        });
+
+        if (columnIndex !== -1) {
+          // Contar las tallas en esta columna (empezar desde fila 2, índice 1)
+          const tallasCount: { [talla: string]: number } = {};
+          for (let i = 1; i < jsonData.length; i++) {
+            const talla = jsonData[i][columnIndex];
+            if (talla) {
+              const tallaStr = talla.toString().toUpperCase().trim();
+              tallasCount[tallaStr] = (tallasCount[tallaStr] || 0) + 1;
+            }
+          }
+
+          if (Object.keys(tallasCount).length > 0) {
+            resultado[key as keyof typeof resultado] = tallasCount;
+            columnsFound++;
+          }
+        }
+      }
+
+      if (columnsFound === 0) {
         toast({
           title: 'Error',
-          description: 'No se encontró la columna TALLA en el archivo Excel',
+          description: 'No se encontraron columnas de prendas (POLO, POLO MANGA LARGA, SHORT, FALDASHORT, PANTALONETA)',
           variant: 'destructive'
         });
         setExcelFile(null);
         return;
       }
 
-      // Contar las tallas (empezar desde fila 2, índice 1)
-      const tallasCount: { [talla: string]: number } = {};
-      for (let i = 1; i < jsonData.length; i++) {
-        const talla = jsonData[i][tallaIndex];
-        if (talla) {
-          const tallaStr = talla.toString().toUpperCase().trim();
-          tallasCount[tallaStr] = (tallasCount[tallaStr] || 0) + 1;
-        }
-      }
-
-      setExcelData(tallasCount);
+      setExcelData(resultado);
       
       toast({
         title: 'Excel cargado',
-        description: `Se encontraron ${Object.keys(tallasCount).length} tallas diferentes`
+        description: `Se encontraron ${columnsFound} tipo(s) de prenda(s)`
       });
     } catch (error) {
       console.error('Error reading Excel:', error);
@@ -175,9 +212,29 @@ export const AddOrderDialog = ({ onAddOrder }: AddOrderDialogProps) => {
       let finalItems: OrderItem[];
       
       if (excelData) {
-        // Si hay datos de Excel, calcular la cantidad total de ese tipo de prenda
-        const totalCantidad = Object.values(excelData).reduce((sum, count) => sum + count, 0);
-        finalItems = [{ prenda: excelPrenda, cantidad: totalCantidad }];
+        // Si hay datos de Excel, crear items para cada tipo de prenda
+        finalItems = [];
+        
+        if (excelData.polo) {
+          const totalCantidad = Object.values(excelData.polo).reduce((sum, count) => sum + count, 0);
+          finalItems.push({ prenda: 'polo', cantidad: totalCantidad });
+        }
+        if (excelData.poloMangaLarga) {
+          const totalCantidad = Object.values(excelData.poloMangaLarga).reduce((sum, count) => sum + count, 0);
+          finalItems.push({ prenda: 'poloMangaLarga', cantidad: totalCantidad });
+        }
+        if (excelData.short) {
+          const totalCantidad = Object.values(excelData.short).reduce((sum, count) => sum + count, 0);
+          finalItems.push({ prenda: 'short', cantidad: totalCantidad });
+        }
+        if (excelData.faldaShort) {
+          const totalCantidad = Object.values(excelData.faldaShort).reduce((sum, count) => sum + count, 0);
+          finalItems.push({ prenda: 'faldaShort', cantidad: totalCantidad });
+        }
+        if (excelData.pantaloneta) {
+          const totalCantidad = Object.values(excelData.pantaloneta).reduce((sum, count) => sum + count, 0);
+          finalItems.push({ prenda: 'pantaloneta', cantidad: totalCantidad });
+        }
       } else {
         // Si no hay Excel, usar los items manuales
         finalItems = items;
@@ -202,9 +259,46 @@ export const AddOrderDialog = ({ onAddOrder }: AddOrderDialogProps) => {
   const totalDesignTimeHours = (tiempoDiseno + tiempoLista) / 60;
   
   // Calcular el tiempo basándose en si hay datos de Excel o items manuales
-  const timeCalculation = excelData 
-    ? calculateOrderTimeFromExcel(excelPrenda, excelData, totalDesignTimeHours)
-    : calculateOrderTime(items, totalDesignTimeHours);
+  let timeCalculation;
+  if (excelData) {
+    // Sumar tiempos de todas las prendas del Excel
+    let totalTime = 0;
+    let totalDesignTime = 0;
+    
+    if (excelData.polo) {
+      const calc = calculateOrderTimeFromExcel('polo', excelData.polo, totalDesignTimeHours);
+      totalTime += calc.totalTime;
+      totalDesignTime += calc.designTime;
+    }
+    if (excelData.poloMangaLarga) {
+      const calc = calculateOrderTimeFromExcel('poloMangaLarga', excelData.poloMangaLarga, totalDesignTimeHours);
+      totalTime += calc.totalTime;
+      totalDesignTime += calc.designTime;
+    }
+    if (excelData.short) {
+      const calc = calculateOrderTimeFromExcel('short', excelData.short, totalDesignTimeHours);
+      totalTime += calc.totalTime;
+      totalDesignTime += calc.designTime;
+    }
+    if (excelData.faldaShort) {
+      const calc = calculateOrderTimeFromExcel('faldaShort', excelData.faldaShort, totalDesignTimeHours);
+      totalTime += calc.totalTime;
+      totalDesignTime += calc.designTime;
+    }
+    if (excelData.pantaloneta) {
+      const calc = calculateOrderTimeFromExcel('pantaloneta', excelData.pantaloneta, totalDesignTimeHours);
+      totalTime += calc.totalTime;
+      totalDesignTime += calc.designTime;
+    }
+    
+    timeCalculation = {
+      designTime: totalDesignTime,
+      productionTime: totalTime - totalDesignTime,
+      totalTime: totalTime
+    };
+  } else {
+    timeCalculation = calculateOrderTime(items, totalDesignTimeHours);
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -408,8 +502,8 @@ export const AddOrderDialog = ({ onAddOrder }: AddOrderDialogProps) => {
                   className="cursor-pointer"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Sube un archivo Excel con columnas: NOMBRE, NUMERO, TALLA. 
-                  Se contarán automáticamente las tallas y se usarán los tiempos de la configuración avanzada.
+                  Sube un archivo Excel con columnas: POLO, POLO MANGA LARGA, SHORT, FALDASHORT, PANTALONETA. 
+                  Se contarán automáticamente las tallas de cada columna desde la segunda fila.
                 </p>
               </div>
             ) : (
@@ -421,36 +515,75 @@ export const AddOrderDialog = ({ onAddOrder }: AddOrderDialogProps) => {
                 
                 {excelData && (
                   <div className="bg-muted/50 rounded-md p-3 space-y-3">
-                    <div>
-                      <Label className="text-sm font-medium">Tipo de Prenda:</Label>
-                      <Select
-                        value={excelPrenda}
-                        onValueChange={(value: any) => setExcelPrenda(value)}
-                      >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="polo">Polo</SelectItem>
-                          <SelectItem value="poloMangaLarga">Polo Manga Larga</SelectItem>
-                          <SelectItem value="short">Short</SelectItem>
-                          <SelectItem value="faldaShort">Falda Short</SelectItem>
-                          <SelectItem value="pantaloneta">Pantaloneta</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <p className="text-sm font-medium mb-2">Tallas encontradas:</p>
-                      <div className="grid grid-cols-3 gap-2 text-xs">
-                        {Object.entries(excelData).map(([talla, cantidad]) => (
-                          <div key={talla} className="bg-background rounded px-2 py-1 flex justify-between">
-                            <span className="font-medium">{talla}:</span>
-                            <span className="text-muted-foreground">{cantidad} unid.</span>
-                          </div>
-                        ))}
+                    {excelData.polo && (
+                      <div>
+                        <p className="text-sm font-semibold mb-2 text-primary">Polo:</p>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          {Object.entries(excelData.polo).map(([talla, cantidad]) => (
+                            <div key={talla} className="bg-background rounded px-2 py-1 flex justify-between">
+                              <span className="font-medium">{talla}:</span>
+                              <span className="text-muted-foreground">{cantidad} unid.</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
+                    
+                    {excelData.poloMangaLarga && (
+                      <div>
+                        <p className="text-sm font-semibold mb-2 text-primary">Polo Manga Larga:</p>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          {Object.entries(excelData.poloMangaLarga).map(([talla, cantidad]) => (
+                            <div key={talla} className="bg-background rounded px-2 py-1 flex justify-between">
+                              <span className="font-medium">{talla}:</span>
+                              <span className="text-muted-foreground">{cantidad} unid.</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {excelData.short && (
+                      <div>
+                        <p className="text-sm font-semibold mb-2 text-primary">Short:</p>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          {Object.entries(excelData.short).map(([talla, cantidad]) => (
+                            <div key={talla} className="bg-background rounded px-2 py-1 flex justify-between">
+                              <span className="font-medium">{talla}:</span>
+                              <span className="text-muted-foreground">{cantidad} unid.</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {excelData.faldaShort && (
+                      <div>
+                        <p className="text-sm font-semibold mb-2 text-primary">Falda Short:</p>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          {Object.entries(excelData.faldaShort).map(([talla, cantidad]) => (
+                            <div key={talla} className="bg-background rounded px-2 py-1 flex justify-between">
+                              <span className="font-medium">{talla}:</span>
+                              <span className="text-muted-foreground">{cantidad} unid.</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {excelData.pantaloneta && (
+                      <div>
+                        <p className="text-sm font-semibold mb-2 text-primary">Pantaloneta:</p>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          {Object.entries(excelData.pantaloneta).map(([talla, cantidad]) => (
+                            <div key={talla} className="bg-background rounded px-2 py-1 flex justify-between">
+                              <span className="font-medium">{talla}:</span>
+                              <span className="text-muted-foreground">{cantidad} unid.</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     
                     <div className="text-xs text-muted-foreground pt-2 border-t">
                       ℹ️ Se usarán los tiempos de la configuración avanzada para cada talla
