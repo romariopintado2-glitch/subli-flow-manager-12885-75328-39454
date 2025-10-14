@@ -14,6 +14,13 @@ interface SettingsData {
   timeData: TimeCalculation;
   diseñadores: string[];
   configMode: 'simple' | 'avanzada';
+  workSchedule?: {
+    startHour: number;
+    endHour: number;
+    lunchStart: number;
+    lunchEnd: number;
+    workDays: number[]; // 0=domingo, 1=lunes, ... 6=sábado
+  };
   advancedTimesBySize?: {
     [prenda: string]: {
       [talla: string]: {
@@ -58,6 +65,13 @@ export const SettingsView = () => {
     },
     diseñadores: [],
     configMode: 'simple',
+    workSchedule: {
+      startHour: 9,
+      endHour: 18,
+      lunchStart: 13,
+      lunchEnd: 14,
+      workDays: [1, 2, 3, 4, 5, 6] // Lunes a sábado por defecto
+    },
     advancedTimesBySize: {},
     advancedCostsBySize: {}
   });
@@ -182,6 +196,41 @@ export const SettingsView = () => {
       configMode: checked ? 'avanzada' : 'simple'
     });
   };
+
+  const updateWorkSchedule = (field: string, value: number) => {
+    saveSettings({
+      ...settings,
+      workSchedule: {
+        ...(settings.workSchedule || { startHour: 9, endHour: 18, lunchStart: 13, lunchEnd: 14, workDays: [1, 2, 3, 4, 5, 6] }),
+        [field]: value
+      }
+    });
+  };
+
+  const toggleWorkDay = (day: number) => {
+    const currentDays = settings.workSchedule?.workDays || [1, 2, 3, 4, 5, 6];
+    const newDays = currentDays.includes(day)
+      ? currentDays.filter(d => d !== day)
+      : [...currentDays, day].sort();
+    
+    saveSettings({
+      ...settings,
+      workSchedule: {
+        ...(settings.workSchedule || { startHour: 9, endHour: 18, lunchStart: 13, lunchEnd: 14, workDays: [] }),
+        workDays: newDays
+      }
+    });
+  };
+
+  const weekDays = [
+    { value: 0, label: 'Dom' },
+    { value: 1, label: 'Lun' },
+    { value: 2, label: 'Mar' },
+    { value: 3, label: 'Mié' },
+    { value: 4, label: 'Jue' },
+    { value: 5, label: 'Vie' },
+    { value: 6, label: 'Sáb' }
+  ];
 
   return (
     <div className="space-y-6">
@@ -443,6 +492,107 @@ export const SettingsView = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Horario Laboral */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="w-5 h-5" />
+            Horario Laboral
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <Label htmlFor="start-hour">Hora Inicio</Label>
+              <Input
+                id="start-hour"
+                type="number"
+                min="0"
+                max="23"
+                value={settings.workSchedule?.startHour || 9}
+                onChange={(e) => updateWorkSchedule('startHour', parseInt(e.target.value) || 9)}
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {(settings.workSchedule?.startHour || 9).toString().padStart(2, '0')}:00
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="end-hour">Hora Fin</Label>
+              <Input
+                id="end-hour"
+                type="number"
+                min="0"
+                max="23"
+                value={settings.workSchedule?.endHour || 18}
+                onChange={(e) => updateWorkSchedule('endHour', parseInt(e.target.value) || 18)}
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {(settings.workSchedule?.endHour || 18).toString().padStart(2, '0')}:00
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="lunch-start">Refrigerio Inicio</Label>
+              <Input
+                id="lunch-start"
+                type="number"
+                min="0"
+                max="23"
+                value={settings.workSchedule?.lunchStart || 13}
+                onChange={(e) => updateWorkSchedule('lunchStart', parseInt(e.target.value) || 13)}
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {(settings.workSchedule?.lunchStart || 13).toString().padStart(2, '0')}:00
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="lunch-end">Refrigerio Fin</Label>
+              <Input
+                id="lunch-end"
+                type="number"
+                min="0"
+                max="23"
+                value={settings.workSchedule?.lunchEnd || 14}
+                onChange={(e) => updateWorkSchedule('lunchEnd', parseInt(e.target.value) || 14)}
+                className="mt-1"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {(settings.workSchedule?.lunchEnd || 14).toString().padStart(2, '0')}:00
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <Label className="mb-3 block">Días Laborables</Label>
+            <div className="flex gap-2 flex-wrap">
+              {weekDays.map(day => (
+                <Button
+                  key={day.value}
+                  size="sm"
+                  variant={(settings.workSchedule?.workDays || [1, 2, 3, 4, 5, 6]).includes(day.value) ? 'default' : 'outline'}
+                  onClick={() => toggleWorkDay(day.value)}
+                  className="min-w-[60px]"
+                >
+                  {day.label}
+                </Button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Selecciona los días en los que se trabaja. Los cálculos de entrega solo considerarán estos días.
+            </p>
+          </div>
+
+          <div className="p-4 bg-muted/50 rounded-lg">
+            <p className="text-sm text-muted-foreground">
+              <strong>Nota:</strong> El horario de refrigerio no se cuenta en el tiempo de trabajo. 
+              Los cálculos de entrega se harán basándose en este horario y los días laborables seleccionados.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Diseñadores */}
       <Card>

@@ -1,11 +1,25 @@
 import { OrderItem, WorkSchedule, TimeCalculation } from '@/types/sublimation';
 import { timeData as defaultTimeData } from '@/data/timeData';
 
-const workSchedule: WorkSchedule = {
-  startHour: 9,
-  endHour: 18,
-  lunchStart: 13,
-  lunchEnd: 14
+const getWorkSchedule = (): WorkSchedule => {
+  const stored = localStorage.getItem('settings');
+  if (stored) {
+    try {
+      const settings = JSON.parse(stored);
+      if (settings.workSchedule) {
+        return settings.workSchedule;
+      }
+    } catch (error) {
+      console.error('Error loading work schedule:', error);
+    }
+  }
+  return {
+    startHour: 9,
+    endHour: 18,
+    lunchStart: 13,
+    lunchEnd: 14,
+    workDays: [1, 2, 3, 4, 5, 6]
+  };
 };
 
 export const useTimeCalculator = () => {
@@ -99,6 +113,7 @@ export const useTimeCalculator = () => {
   };
 
   const calculateDeliveryTime = (totalMinutes: number, startDate?: Date) => {
+    const workSchedule = getWorkSchedule();
     const start = startDate || new Date();
     // Reset seconds and milliseconds
     start.setSeconds(0, 0);
@@ -108,12 +123,29 @@ export const useTimeCalculator = () => {
     let currentHour = start.getHours();
     let currentMinute = start.getMinutes();
     
+    // Función para verificar si un día es laborable
+    const isWorkDay = (date: Date) => {
+      const dayOfWeek = date.getDay();
+      return workSchedule.workDays.includes(dayOfWeek);
+    };
+    
+    // Si no es día laborable, avanzar al siguiente día laborable
+    while (!isWorkDay(deliveryDate)) {
+      deliveryDate.setDate(deliveryDate.getDate() + 1);
+      currentHour = workSchedule.startHour;
+      currentMinute = 0;
+    }
+    
     // Adjust to work hours if starting outside
     if (currentHour < workSchedule.startHour) {
       currentHour = workSchedule.startHour;
       currentMinute = 0;
     } else if (currentHour >= workSchedule.endHour) {
       deliveryDate.setDate(deliveryDate.getDate() + 1);
+      // Avanzar al siguiente día laborable
+      while (!isWorkDay(deliveryDate)) {
+        deliveryDate.setDate(deliveryDate.getDate() + 1);
+      }
       currentHour = workSchedule.startHour;
       currentMinute = 0;
     }
@@ -157,6 +189,10 @@ export const useTimeCalculator = () => {
         // Move to next day
         remainingMinutes -= workMinutesLeft;
         deliveryDate.setDate(deliveryDate.getDate() + 1);
+        // Avanzar al siguiente día laborable
+        while (!isWorkDay(deliveryDate)) {
+          deliveryDate.setDate(deliveryDate.getDate() + 1);
+        }
         currentHour = workSchedule.startHour;
         currentMinute = 0;
       }
@@ -176,6 +212,6 @@ export const useTimeCalculator = () => {
     calculateOrderTimeFromExcel,
     calculateDeliveryTime,
     formatTime,
-    workSchedule
+    workSchedule: getWorkSchedule()
   };
 };

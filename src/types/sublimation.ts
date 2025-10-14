@@ -37,6 +37,7 @@ export interface Order {
   imagenDiseño?: string; // Base64 or URL
   fotosLista?: string[]; // Hasta 4 fotos - Base64 or URL
   archivosImpresion?: string[]; // Array of Base64 or URLs
+  incluyeTela?: boolean; // Si el pedido incluye tela
   procesos: {
     diseno: { inicio?: Date; fin?: Date; completado: boolean; };
     impresion: { inicio?: Date; fin?: Date; completado: boolean; };
@@ -51,4 +52,6 @@ export interface WorkSchedule {
   endHour: number; // 6 PM
   lunchStart: number; // 1 PM
   lunchEnd: number; // 2 PM
+  workDays: number[]; // 0=domingo, 1=lunes, ... 6=sábado
+  overtimeMode?: boolean; // Modo horario extra activado
 }

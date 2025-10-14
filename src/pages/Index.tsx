@@ -22,7 +22,7 @@ const Index = () => {
   const { calculateOrderTime, calculateDeliveryTime } = useTimeCalculator();
   const { isAuthenticated, isLoading, authenticate, logout } = usePasswordProtection();
 
-  const handleAddOrder = (nombrePedido: string, clienteId: string | undefined, items: OrderItem[], designTime: number, diseñador?: string) => {
+  const handleAddOrder = (nombrePedido: string, clienteId: string | undefined, items: OrderItem[], designTime: number, diseñador?: string, incluyeTela?: boolean) => {
     const timeCalc = calculateOrderTime(items, designTime);
     const deliveryDate = calculateDeliveryTime(timeCalc.totalTime);
     
@@ -49,6 +49,7 @@ const Index = () => {
       fechaEntregaEstimada: deliveryDate,
       status: 'pending',
       diseñador,
+      incluyeTela,
       procesos: {
         diseno: { completado: false },
         impresion: { completado: false },

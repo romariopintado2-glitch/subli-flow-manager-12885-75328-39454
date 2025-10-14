@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 
 interface AddOrderDialogProps {
-  onAddOrder: (nombrePedido: string, clienteId: string | undefined, items: OrderItem[], designTime: number, diseñador?: string) => void;
+  onAddOrder: (nombrePedido: string, clienteId: string | undefined, items: OrderItem[], designTime: number, diseñador?: string, incluyeTela?: boolean) => void;
 }
 
 export const AddOrderDialog = ({ onAddOrder }: AddOrderDialogProps) => {
@@ -24,6 +24,7 @@ export const AddOrderDialog = ({ onAddOrder }: AddOrderDialogProps) => {
   const [nombrePedido, setNombrePedido] = useState('');
   const [clienteId, setClienteId] = useState<string>('');
   const [diseñador, setDiseñador] = useState('');
+  const [incluyeTela, setIncluyeTela] = useState(false);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [tiempoDiseno, setTiempoDiseno] = useState(0); // in minutes
   const [tiempoLista, setTiempoLista] = useState(15); // in minutes
@@ -243,10 +244,11 @@ export const AddOrderDialog = ({ onAddOrder }: AddOrderDialogProps) => {
       if (finalItems.length > 0) {
         const totalDesignTimeHours = (tiempoDiseno + tiempoLista) / 60;
         const finalDiseñador = diseñador && diseñador !== 'none' ? diseñador : undefined;
-        onAddOrder(nombrePedido, clienteId || undefined, finalItems, totalDesignTimeHours, finalDiseñador);
+        onAddOrder(nombrePedido, clienteId || undefined, finalItems, totalDesignTimeHours, finalDiseñador, incluyeTela);
         setNombrePedido('');
         setClienteId('');
         setDiseñador('');
+        setIncluyeTela(false);
         setTiempoDiseno(0);
         setTiempoLista(15);
         setItems([{ prenda: 'polo', cantidad: 1 }]);
@@ -433,7 +435,7 @@ export const AddOrderDialog = ({ onAddOrder }: AddOrderDialogProps) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <Label htmlFor="tiempoDiseno">Tiempo de Diseño</Label>
               <Select
@@ -465,6 +467,22 @@ export const AddOrderDialog = ({ onAddOrder }: AddOrderDialogProps) => {
                   <SelectItem value="15">15 min</SelectItem>
                   <SelectItem value="30">30 min</SelectItem>
                   <SelectItem value="45">45 min</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="incluyeTela">Incluye Tela</Label>
+              <Select
+                value={incluyeTela ? 'si' : 'no'}
+                onValueChange={(value) => setIncluyeTela(value === 'si')}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no">No</SelectItem>
+                  <SelectItem value="si">Sí</SelectItem>
                 </SelectContent>
               </Select>
             </div>

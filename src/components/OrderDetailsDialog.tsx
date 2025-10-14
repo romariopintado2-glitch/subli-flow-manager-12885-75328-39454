@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Order } from '@/types/sublimation';
 import { Cliente } from '@/types/cliente';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTimeCalculator } from '@/hooks/useTimeCalculator';
 import { Calendar, User, MapPin, Phone, FileText, Pencil, Upload, X, Image as ImageIcon, Eye, MessageCircle, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -28,6 +29,8 @@ export const OrderDetailsDialog = ({ order, open, onOpenChange, onUpdateOrder }:
   const [imageViewOpen, setImageViewOpen] = useState(false);
   const [linkImpresion, setLinkImpresion] = useState('');
   const [descripcionLink, setDescripcionLink] = useState('');
+  const [isEditingDiseñador, setIsEditingDiseñador] = useState(false);
+  const [diseñadorEdit, setDiseñadorEdit] = useState(order.diseñador || '');
 
   useEffect(() => {
     if (order.clienteId) {
@@ -43,6 +46,15 @@ export const OrderDetailsDialog = ({ order, open, onOpenChange, onUpdateOrder }:
   const handleSaveDescripcion = () => {
     onUpdateOrder(order.id, { descripcionPedido: descripcion });
     setIsEditing(false);
+  };
+
+  const handleSaveDiseñador = () => {
+    onUpdateOrder(order.id, { diseñador: diseñadorEdit || undefined });
+    setIsEditingDiseñador(false);
+    toast({
+      title: 'Diseñador actualizado',
+      description: 'El diseñador se ha actualizado correctamente'
+    });
   };
 
   const handleFileUpload = (files: FileList | null) => {
@@ -248,13 +260,77 @@ export const OrderDetailsDialog = ({ order, open, onOpenChange, onUpdateOrder }:
           </div>
 
           {/* Diseñador */}
-          {order.diseñador && (
-            <div className="p-4 bg-muted/30 rounded-lg space-y-2">
+          <div className="p-4 bg-muted/30 rounded-lg space-y-3">
+            <div className="flex items-center justify-between">
               <h3 className="font-semibold flex items-center gap-2">
                 <User className="w-4 h-4" />
                 Diseñador Asignado
               </h3>
-              <p className="font-medium">{order.diseñador}</p>
+              {!isEditingDiseñador && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsEditingDiseñador(true)}
+                >
+                  <Pencil className="w-3 h-3 mr-1" />
+                  Editar
+                </Button>
+              )}
+            </div>
+
+            {isEditingDiseñador ? (
+              <div className="space-y-3">
+                <Select
+                  value={diseñadorEdit || 'none'}
+                  onValueChange={setDiseñadorEdit}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar diseñador" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin asignar</SelectItem>
+                    {(() => {
+                      const settingsStorage = localStorage.getItem('settings');
+                      if (settingsStorage) {
+                        try {
+                          const settings = JSON.parse(settingsStorage);
+                          return settings.diseñadores?.map((d: string) => (
+                            <SelectItem key={d} value={d}>{d}</SelectItem>
+                          ));
+                        } catch (error) {
+                          return null;
+                        }
+                      }
+                      return null;
+                    })()}
+                  </SelectContent>
+                </Select>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setDiseñadorEdit(order.diseñador || '');
+                      setIsEditingDiseñador(false);
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button size="sm" onClick={handleSaveDiseñador}>
+                    Guardar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="font-medium">{order.diseñador || 'Sin asignar'}</p>
+            )}
+          </div>
+
+          {/* Incluye Tela */}
+          {order.incluyeTela !== undefined && (
+            <div className="p-4 bg-muted/30 rounded-lg space-y-2">
+              <h3 className="font-semibold">Incluye Tela</h3>
+              <p className="font-medium">{order.incluyeTela ? 'Sí' : 'No'}</p>
             </div>
           )}
 
